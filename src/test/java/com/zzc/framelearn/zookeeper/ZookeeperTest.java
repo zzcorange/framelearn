@@ -1,5 +1,10 @@
 package com.zzc.framelearn.zookeeper;
 
+import org.apache.curator.RetryPolicy;
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.framework.recipes.locks.InterProcessMutex;
+import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
@@ -47,7 +52,7 @@ public class ZookeeperTest {
         }
     }
     @Test
-    public void createNodeWithAuth() throws Exception {
+    public void readNodeWithAuth() throws Exception {
         ZooKeeper zooKeeper = new ZooKeeper(hostPort, 2000, null);
 //        zooKeeper.setACL("/zktestAuth");
        // zooKeeper.addAuthInfo("",);
@@ -76,5 +81,52 @@ public class ZookeeperTest {
 
 
 
+    }
+
+    @Test
+    public void createNode() throws  Exception{
+        Watcher watcher = new MyWatcher();
+        ZooKeeper zooKeeper = new ZooKeeper(hostPort,2000,watcher);
+      //  zooKeeper.create("/createnodetestpersistent","createnodetest".getBytes(), ZooDefs.Ids.OPEN_ACL_UNSAFE,CreateMode.EPHEMERAL);
+   //     zooKeeper.register(watchedEvent -> {System.out.println(watchedEvent.toString());});
+       byte[] b= zooKeeper.getData("/zktest",true,new Stat());
+       System.out.println(new String(b));
+        System.in.read();
+    }
+
+    /**
+     * 测试分布式锁
+     */
+    @Test
+    public void testLock()throws  Exception{
+        //创建zookeeper的客户端
+
+        RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 3);
+
+        CuratorFramework client = CuratorFrameworkFactory.newClient(hostPort, retryPolicy);
+
+        client.start();
+
+//创建分布式锁, 锁空间的根节点路径为/curator/lock
+
+        InterProcessMutex mutex = new InterProcessMutex(client, "/curator/lock");
+        System.out.println("before mutex");
+
+        mutex.acquire();
+
+//获得了锁, 进行业务流程
+
+        System.out.println("Enter mutex");
+        for(;;){
+            Thread.sleep(1000);
+            if(1>2) break;
+        }
+//完成业务流程, 释放锁
+
+        mutex.release();
+
+//关闭客户端
+
+        client.close();
     }
 }
